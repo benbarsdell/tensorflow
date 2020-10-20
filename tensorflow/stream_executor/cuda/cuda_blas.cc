@@ -3479,13 +3479,6 @@ bool CUDABlas::DoBlasLtMatmulInternal(
                "epilogue for the given bias pointer.";
     return false;
   }
-  if (bias != nullptr) {
-    if (!cuda_plan.SetBiasPointer(bias.opaque())) {
-      VLOG(2) << "DoBlasLtMatmul returning false because setting the bias "
-                 "pointer failed.";
-      return false;
-    }
-  }
   const void* alpha_ptr = alpha.is_pointer() ? alpha.opaque_pointer().opaque()
                                              : alpha.opaque_value();
   const void* beta_ptr =
@@ -3509,6 +3502,14 @@ bool CUDABlas::DoBlasLtMatmulInternal(
   cudaStream_t cuda_stream = CUDAStream(stream);
 
   absl::MutexLock lock(&mu_);
+
+  if (bias != nullptr) {
+    if (!cuda_plan.SetBiasPointer(bias.opaque())) {
+      VLOG(2) << "DoBlasLtMatmul returning false because setting the bias "
+                 "pointer failed.";
+      return false;
+    }
+  }
 
   CHECK(blasLt_ != nullptr);
 

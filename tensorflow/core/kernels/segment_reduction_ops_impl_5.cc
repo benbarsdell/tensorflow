@@ -187,4 +187,32 @@ REGISTER_CPU_SPARSE_KERNELS_FOR_EACH_INDEX_TYPE(double);
 #undef REGISTER_CPU_SPARSE_KERNELS_FOR_EACH_INDEX_TYPE
 #undef REGISTER_CPU_SPARSE_KERNELS_FOR_EACH_SEGMENT_ID_TYPE
 
+#define REGISTER_GPU_SPARSE_KERNELS(type, index_type, segment_ids_type) \
+  REGISTER_KERNEL_BUILDER(                                              \
+      Name("SparseSegmentMeanGrad")                                     \
+          .Device(DEVICE_GPU)                                           \
+          .HostMemory("output_dim0")                                    \
+          .TypeConstraint<type>("T")                                    \
+          .TypeConstraint<index_type>("Tidx")                           \
+          .TypeConstraint<segment_ids_type>("Tsegmentids"),             \
+      SparseSegmentMeanGradOp<GPUDevice, type, index_type, segment_ids_type>);
+TF_CALL_GPU_NUMBER_TYPES(REGISTER_GPU_SPARSE_KERNELS_FOR_EACH_INDEX_TYPE);
+#undef REGISTER_GPU_SPARSE_KERNELS
+
+#define REGISTER_GPU_SPARSE_KERNELS(type, index_type, segment_ids_type) \
+  REGISTER_KERNEL_BUILDER(                                              \
+      Name("SparseSegmentSqrtNGrad")                                    \
+          .Device(DEVICE_GPU)                                           \
+          .HostMemory("output_dim0")                                    \
+          .TypeConstraint<type>("T")                                    \
+          .TypeConstraint<index_type>("Tidx")                           \
+          .TypeConstraint<segment_ids_type>("Tsegmentids"),             \
+      SparseSegmentSqrtNGradOp<GPUDevice, type, index_type,             \
+                               segment_ids_type>);
+TF_CALL_GPU_NUMBER_TYPES(REGISTER_GPU_SPARSE_KERNELS_FOR_EACH_INDEX_TYPE);
+#undef REGISTER_GPU_SPARSE_KERNELS
+
+#undef REGISTER_GPU_SPARSE_KERNELS_FOR_EACH_INDEX_TYPE
+#undef REGISTER_GPU_SPARSE_KERNELS_FOR_EACH_SEGMENT_ID_TYPE
+
 }  // namespace tensorflow

@@ -180,6 +180,15 @@ struct SparseSegmentReductionFunctor {
                     typename TTypes<T, 2>::Tensor output);
 };
 
+template <class Device, typename T, typename Index, typename SegmentId>
+struct SparseSegmentGradFunctor {
+  void operator()(OpKernelContext* context, bool is_sqrtn,
+                  typename TTypes<T>::ConstMatrix input_flat,
+                  typename TTypes<Index>::ConstVec indices_vec,
+                  typename TTypes<SegmentId>::ConstVec segment_vec,
+                  typename TTypes<T>::Matrix output_flat);
+};
+
 }  // namespace functor
 }  // namespace tensorflow
 

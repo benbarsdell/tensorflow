@@ -166,7 +166,7 @@ TF_CALL_GPU_NUMBER_TYPES(REGISTER_GPU_SPARSE_KERNELS_FOR_EACH_INDEX_TYPE);
           .TypeConstraint<type>("T")                                    \
           .TypeConstraint<index_type>("Tidx")                           \
           .TypeConstraint<segment_ids_type>("Tsegmentids"),             \
-      SparseSegmentMeanGradOp<type, index_type, segment_ids_type>);
+      SparseSegmentMeanGradOp<CPUDevice, type, index_type, segment_ids_type>);
 REGISTER_CPU_SPARSE_KERNELS_FOR_EACH_INDEX_TYPE(float);
 REGISTER_CPU_SPARSE_KERNELS_FOR_EACH_INDEX_TYPE(double);
 #undef REGISTER_CPU_SPARSE_KERNELS
@@ -178,7 +178,8 @@ REGISTER_CPU_SPARSE_KERNELS_FOR_EACH_INDEX_TYPE(double);
           .TypeConstraint<type>("T")                                    \
           .TypeConstraint<index_type>("Tidx")                           \
           .TypeConstraint<segment_ids_type>("Tsegmentids"),             \
-      SparseSegmentSqrtNGradOp<type, index_type, segment_ids_type>);
+      SparseSegmentSqrtNGradOp<CPUDevice, type, index_type,             \
+                               segment_ids_type>);
 REGISTER_CPU_SPARSE_KERNELS_FOR_EACH_INDEX_TYPE(float);
 REGISTER_CPU_SPARSE_KERNELS_FOR_EACH_INDEX_TYPE(double);
 #undef REGISTER_CPU_SPARSE_KERNELS

@@ -519,6 +519,17 @@ class SparseSegmentReductionHelper(SegmentReductionHelper):
     return self._segmentReduce(
         segment_indices, x[indices], op1, op2, num_segments=num_segments)
 
+  def _sparseSegmentReduceGrad(self, ygrad, indices, segment_ids, output_dim0,
+                               is_sqrtn):
+    weights = np.zeros_like(ygrad, shape=ygrad.shape[0])
+    for segment in segment_ids:
+      weights[segment] += 1
+    weights = 1. / weights if not is_sqrtn else 1. / np.sqrt(weights)
+    xgrad = np.zeros_like(ygrad, shape=[output_dim0, ygrad.shape[1]])
+    for segment, index in zip(segment_ids, indices):
+      xgrad[index] += ygrad[segment] * weights[segment]
+    return xgrad
+
 
 class SparseSegmentReductionOpTest(SparseSegmentReductionHelper):
 
@@ -850,6 +861,25 @@ class SparseSegmentReductionOpTest(SparseSegmentReductionHelper):
             x_init_value=np_x.astype(np.double),
             delta=1)
       self.assertAllClose(jacob_t, jacob_n)
+
+  def testGradientExplicit(self):
+    # Note that the GPU implem has different paths for different inner sizes.
+    for inner_size in (1, 2, 3, 32):
+      with self.session():
+        tf_ygrad, np_ygrad = self._input(
+            [3, inner_size], dtype=dtypes_lib.float32)
+        segment_ids = [0, 1, 2, 2, 2]
+        indices = [8, 3, 0, 9, 3]
+        output_dim0 = 10
+        ops_list = [
+            (math_ops.sparse_segment_mean_grad, False),
+            (math_ops.sparse_segment_sqrt_n_grad, True),
+        ]
+        for tf_op, is_sqrtn in ops_list:
+          np_xgrad = self._sparseSegmentReduceGrad(
+              np_ygrad, indices, segment_ids, output_dim0, is_sqrtn)
+          tf_xgrad = tf_op(tf_ygrad, indices, segment_ids, output_dim0)
+          self.assertAllClose(tf_xgrad, np_xgrad)
 
   def testGradientValid(self):
     # Baseline for the testGradient*Invalid* methods below.

@@ -275,6 +275,19 @@ class alignas(alignof(T) * N) AlignedVector {
   DEFINE_BINARY_OPERATOR(/)
 #undef DEFINE_BINARY_OPERATOR
 
+#define DEFINE_BINARY_FUNCTION(fn)                                        \
+  friend __host__ __device__ AlignedVector fn(const AlignedVector& lhs,   \
+                                              const AlignedVector& rhs) { \
+    AlignedVector ret;                                                    \
+    UNROLL_ON_DEVICE for (int i = 0; i < kSize; ++i) {                    \
+      ret[i] = fn(lhs[i], rhs[i]);                                        \
+    }                                                                     \
+    return ret;                                                           \
+  }
+  DEFINE_BINARY_FUNCTION(min)
+  DEFINE_BINARY_FUNCTION(max)
+#undef DEFINE_BINARY_FUNCTION
+
  private:
   value_type values_[N];
 };

@@ -16,13 +16,6 @@ limitations under the License.
 #ifndef TENSORFLOW_CORE_KERNELS_SEGMENT_REDUCTION_OPS_H_
 #define TENSORFLOW_CORE_KERNELS_SEGMENT_REDUCTION_OPS_H_
 
-// This file requires the following include because it uses GpuAtomicMax:
-// #include "tensorflow/core/util/gpu_kernel_helper.h"
-
-// Unfortunately we can't add the #include, since it breaks compilation for
-// non-GPU targets. This only breaks in clang, because it's more strict for
-// template code and GpuAtomicMax is used in template context.
-
 #include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_shape.h"
@@ -31,8 +24,6 @@ limitations under the License.
 namespace tensorflow {
 
 class OpKernelContext;
-
-bool DisableSegmentReductionOpDeterminismExceptions();
 
 namespace functor {
 
@@ -49,15 +40,13 @@ typedef Eigen::GpuDevice GPUDevice;
 // data: input data tensor.
 // output: output reshaped to {output_rows, output.size/output_rows}
 template <typename T, typename Index, typename InitialValueF,
-          typename ReductionF, typename AtomicReductionF>
+          typename EmptySegmentValueF, typename ReductionF>
 struct SegmentReductionFunctor {
   void operator()(OpKernelContext* ctx, const GPUDevice& d,
                   const Index output_rows, const TensorShape& segment_ids_shape,
-                  typename TTypes<Index>::ConstFlat segment_ids,
+                  bool is_mean, typename TTypes<Index>::ConstFlat segment_ids,
                   const Index data_size, const T* data,
                   typename TTypes<T, 2>::Tensor output);
-  static constexpr bool atomic_reduction_is_associative =
-      AtomicReductionF::is_associative;
 };
 
 #endif
@@ -73,73 +62,34 @@ struct UnsortedSegmentFunctor {
 
 #if GOOGLE_CUDA || TENSORFLOW_USE_ROCM
 
-// Atomic reduction functors for the gpu.
-template <typename T>
-struct AtomicSumOpGpu {
-  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE void operator()(T* dest,
-                                                        const T& value) {
-    GpuAtomicAdd(dest, value);
-  }
-  static constexpr bool is_associative = std::is_integral<T>::value;
-};
-
-template <typename T>
-struct AtomicProdOpGpu {
-  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE void operator()(T* dest,
-                                                        const T& value) {
-    GpuAtomicMul(dest, value);
-  }
-  static constexpr bool is_associative = std::is_integral<T>::value;
-};
-
-template <typename T>
-struct AtomicMaxOpGpu {
-  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE void operator()(T* dest,
-                                                        const T& value) {
-    GpuAtomicMax(dest, value);
-  }
-  static constexpr bool is_associative = true;
-};
-
-template <typename T>
-struct AtomicMinOpGpu {
-  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE void operator()(T* dest,
-                                                        const T& value) {
-    GpuAtomicMin(dest, value);
-  }
-  static constexpr bool is_associative = true;
-};
-
-// Non-atomic reduction functors for the gpu.
-template <typename T>
-struct NonAtomicSumOpGpu {
-  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE void operator()(T* dest,
-                                                        const T& value) {
-    *dest += value;
+// Note that we define this ourselves to avoid a dependency on gpuprim.
+struct Sum {
+  template <typename T>
+  __host__ __device__ T operator()(const T& a, const T& b) const {
+    return a + b;
   }
 };
 
-template <typename T>
-struct NonAtomicProdOpGpu {
-  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE void operator()(T* dest,
-                                                        const T& value) {
-    *dest *= value;
+struct Prod {
+  template <typename T>
+  __host__ __device__ T operator()(const T& a, const T& b) const {
+    return a * b;
   }
 };
 
-template <typename T>
-struct NonAtomicMaxOpGpu {
-  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE void operator()(T* dest,
-                                                        const T& value) {
-    *dest = max(*dest, value);
+// Note that we don't use gpuprim::Min/Max because they use operator<, which is
+// not implemented for AlignedVector types.
+struct Min {
+  template <typename T>
+  __host__ __device__ T operator()(const T& a, const T& b) const {
+    return min(a, b);
   }
 };
 
-template <typename T>
-struct NonAtomicMinOpGpu {
-  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE void operator()(T* dest,
-                                                        const T& value) {
-    *dest = min(*dest, value);
+struct Max {
+  template <typename T>
+  __host__ __device__ T operator()(const T& a, const T& b) const {
+    return max(a, b);
   }
 };
 
